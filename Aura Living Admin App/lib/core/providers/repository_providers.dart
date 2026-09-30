@@ -7,12 +7,20 @@ import '../../features/customers/data/customer_repository.dart';
 import '../../features/settings/data/settings_repository.dart';
 import '../../features/dashboard/data/metrics_repository.dart';
 
+import '../../features/products/data/firestore_product_repository.dart';
+import '../../features/orders/data/firestore_order_repository.dart';
+import '../services/firebase/firestore_admin_service.dart';
+
+final firestoreAdminServiceProvider = Provider<FirestoreAdminService>((ref) {
+  return FirestoreAdminService();
+});
+
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
-  return MockProductRepository();
+  return FirestoreProductRepository();
 });
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
-  return MockOrderRepository();
+  return FirestoreOrderRepository();
 });
 
 final reviewRepositoryProvider = Provider<ReviewRepository>((ref) {

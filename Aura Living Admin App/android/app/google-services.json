@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "668021638019",
+    "project_id": "aura-living-6885e",
+    "storage_bucket": "aura-living-6885e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668021638019:android:43e2695f3efc06bef3ecb6",
+        "android_client_info": {
+          "package_name": "com.auraliving.aura_living"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB61M_GtZyi4UTXz-27bUI1MoAySErsNl8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668021638019:android:8b32e63f1db06a4bf3ecb6",
+        "android_client_info": {
+          "package_name": "com.auraliving.aura_living_admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB61M_GtZyi4UTXz-27bUI1MoAySErsNl8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

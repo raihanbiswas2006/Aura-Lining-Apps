@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import '../../../domain/entities/order.dart';
 import 'firestore_collections.dart';
 
@@ -13,11 +14,15 @@ abstract class OrderService {
 
 /// Firestore Order Service Implementation
 class FirestoreOrderService implements OrderService {
+  final FirebaseFirestore _firestore;
   final List<Order> _localOrders;
   final _ordersStream = StreamController<List<Order>>.broadcast();
 
-  FirestoreOrderService({List<Order> initialOrders = const []})
-      : _localOrders = List.from(initialOrders) {
+  FirestoreOrderService({
+    FirebaseFirestore? firestore,
+    List<Order> initialOrders = const [],
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _localOrders = List.from(initialOrders) {
     _ordersStream.add(_localOrders);
   }
 
@@ -25,20 +30,30 @@ class FirestoreOrderService implements OrderService {
 
   @override
   Future<Order> createOrder(Order order) async {
-    // In full Firestore integration:
-    // await FirebaseFirestore.instance
-    //     .collection(FirestoreCollections.orders)
-    //     .doc(order.id)
-    //     .set(order.toJson());
     _localOrders.insert(0, order);
     _ordersStream.add(_localOrders);
+
+    try {
+      await _firestore
+          .collection(FirestoreCollections.orders)
+          .doc(order.id)
+          .set(order.toJson());
+    } catch (_) {}
+
     return order;
   }
 
   @override
   Future<Order?> getOrderById(String orderId) async {
     try {
-      return _localOrders.firstWhere((o) => o.id == orderId);
+      final doc = await _firestore.collection(FirestoreCollections.orders).doc(orderId).get();
+      if (doc.exists && doc.data() != null) {
+        return Order.fromJson(doc.data()!);
+      }
+    } catch (_) {}
+
+    try {
+      return _localOrders.firstWhere((o) => o.id == orderId || o.orderNumber == orderId);
     } catch (_) {
       return null;
     }
@@ -46,19 +61,37 @@ class FirestoreOrderService implements OrderService {
 
   @override
   Future<List<Order>> getOrdersByUser(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection(FirestoreCollections.orders)
+          .where('userId', isEqualTo: userId)
+          .get();
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.map((d) => Order.fromJson(d.data())).toList();
+      }
+    } catch (_) {}
+
     return _localOrders.where((o) => o.userId == userId).toList();
   }
 
   @override
   Stream<List<Order>> watchOrdersByUser(String userId) {
-    // In full Firestore integration:
-    // return FirebaseFirestore.instance
-    //     .collection(FirestoreCollections.orders)
-    //     .where('userId', isEqualTo: userId)
-    //     .orderBy('createdAt', descending: true)
-    //     .snapshots()
-    //     .map((s) => s.docs.map((d) => Order.fromJson(d.data())).toList());
-    return _ordersStream.stream.map((list) => list.where((o) => o.userId == userId).toList());
+    try {
+      return _firestore
+          .collection(FirestoreCollections.orders)
+          .where('userId', isEqualTo: userId)
+          .snapshots()
+          .map((snapshot) {
+        if (snapshot.docs.isNotEmpty) {
+          final list = snapshot.docs.map((d) => Order.fromJson(d.data())).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        }
+        return _localOrders.where((o) => o.userId == userId).toList();
+      });
+    } catch (_) {
+      return _ordersStream.stream.map((list) => list.where((o) => o.userId == userId).toList());
+    }
   }
 
   @override
@@ -69,5 +102,12 @@ class FirestoreOrderService implements OrderService {
       _localOrders[idx] = existing.copyWith(fulfillmentStatus: newStatus);
       _ordersStream.add(_localOrders);
     }
+
+    try {
+      await _firestore.collection(FirestoreCollections.orders).doc(orderId).update({
+        'fulfillmentStatus': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
   }
 }
