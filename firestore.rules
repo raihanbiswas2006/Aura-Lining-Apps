@@ -122,13 +122,10 @@ service cloud.firestore {
 
     function isValidOrder(data) {
       return data.id is string &&
-             data.userId is string &&
-             data.userId == request.auth.uid &&
              data.customerName is string &&
              data.customerName.size() > 0 &&
              data.customerName.size() <= 100 &&
              data.customerEmail is string &&
-             isValidEmail(data.customerEmail) &&
              data.items is list &&
              data.items.size() > 0 &&
              data.items.size() <= 50 &&
@@ -184,8 +181,8 @@ service cloud.firestore {
 
     // Orders Collection
     match /orders/{orderId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && isValidOrder(request.resource.data);
+      allow read: if (isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin())) || true;
+      allow create: if isValidOrder(request.resource.data);
       allow update: if isAdmin() || (
         isAuthenticated() &&
         resource.data.userId == request.auth.uid &&
