@@ -41,11 +41,11 @@ class Category {
 
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      slug: json['slug'] as String,
-      imageUrl: json['imageUrl'] as String?,
-      parentCategoryId: json['parentCategoryId'] as String?,
+      id: json['id']?.toString() ?? '',
+      title: (json['title'] ?? json['name'] ?? '').toString(),
+      slug: json['slug']?.toString() ?? '',
+      imageUrl: json['imageUrl']?.toString() ?? json['image']?.toString(),
+      parentCategoryId: json['parentCategoryId']?.toString(),
     );
   }
 

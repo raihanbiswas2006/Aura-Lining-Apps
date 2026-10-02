@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../domain/product.dart';
@@ -8,16 +9,30 @@ import 'product_repository.dart';
 
 /// Live Firestore Product Repository for Aura Living Admin
 class FirestoreProductRepository implements ProductRepository {
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore? _firestoreOverride;
   final MockProductRepository _fallbackRepo = MockProductRepository();
   final _uuid = const Uuid();
 
+  FirebaseFirestore? get _firestore {
+    if (_firestoreOverride != null) return _firestoreOverride;
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        return FirebaseFirestore.instance;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   FirestoreProductRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+      : _firestoreOverride = firestore;
 
   @override
   Stream<List<Product>> watchProducts() {
-    return _firestore.collection('products').snapshots().map((snapshot) {
+    final db = _firestore;
+    if (db == null) {
+      return Stream.value(_fallbackRepo.getProductsSync());
+    }
+    return db.collection('products').snapshots().map((snapshot) {
       if (snapshot.docs.isEmpty) {
         return _fallbackRepo.getProductsSync();
       }
@@ -27,7 +42,11 @@ class FirestoreProductRepository implements ProductRepository {
 
   @override
   Stream<List<Category>> watchCategories() {
-    return _firestore.collection('categories').snapshots().map((snapshot) {
+    final db = _firestore;
+    if (db == null) {
+      return Stream.value(_fallbackRepo.getCategoriesSync());
+    }
+    return db.collection('categories').snapshots().map((snapshot) {
       if (snapshot.docs.isEmpty) {
         return _fallbackRepo.getCategoriesSync();
       }
@@ -42,8 +61,17 @@ class FirestoreProductRepository implements ProductRepository {
     String? stockFilter,
     String? statusFilter,
   }) async {
+    final db = _firestore;
+    if (db == null) {
+      return await _fallbackRepo.getProducts(
+        query: query,
+        categoryId: categoryId,
+        stockFilter: stockFilter,
+        statusFilter: statusFilter,
+      );
+    }
     try {
-      final snapshot = await _firestore.collection('products').get();
+      final snapshot = await db.collection('products').get().timeout(const Duration(seconds: 4));
       if (snapshot.docs.isEmpty) {
         return await _fallbackRepo.getProducts(
           query: query,
@@ -92,12 +120,15 @@ class FirestoreProductRepository implements ProductRepository {
 
   @override
   Future<Product?> getProductById(String id) async {
-    try {
-      final doc = await _firestore.collection('products').doc(id).get();
-      if (doc.exists && doc.data() != null) {
-        return _mapDocToProduct(doc.id, doc.data()!);
-      }
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        final doc = await db.collection('products').doc(id).get().timeout(const Duration(seconds: 4));
+        if (doc.exists && doc.data() != null) {
+          return _mapDocToProduct(doc.id, doc.data()!);
+        }
+      } catch (_) {}
+    }
     return await _fallbackRepo.getProductById(id);
   }
 
@@ -112,9 +143,12 @@ class FirestoreProductRepository implements ProductRepository {
     );
 
     final data = _mapProductToMap(newProduct);
-    try {
-      await _firestore.collection('products').doc(id).set(data);
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('products').doc(id).set(data).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
 
     return newProduct;
   }
@@ -124,38 +158,44 @@ class FirestoreProductRepository implements ProductRepository {
     final updated = product.copyWith(updatedAt: DateTime.now());
     final data = _mapProductToMap(updated);
 
-    try {
-      await _firestore.collection('products').doc(product.id).set(data, SetOptions(merge: true));
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('products').doc(product.id).set(data, SetOptions(merge: true)).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
 
     return updated;
   }
 
   @override
   Future<void> quickAdjustStock(String productId, int newQuantity, {String? variantId}) async {
-    try {
-      final doc = await _firestore.collection('products').doc(productId).get();
-      if (doc.exists && doc.data() != null) {
-        final product = _mapDocToProduct(doc.id, doc.data()!);
-        if (variantId != null && product.hasVariants) {
-          final updatedVariants = product.variants.map((v) {
-            if (v.id == variantId) return v.copyWith(stockQuantity: newQuantity);
-            return v;
-          }).toList();
-          await updateProduct(product.copyWith(variants: updatedVariants));
-        } else {
-          await _firestore.collection('products').doc(productId).update({
-            'stock': newQuantity,
-            'stockQuantity': newQuantity,
-            'totalStock': newQuantity,
-            'inStock': newQuantity > 0,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+    final db = _firestore;
+    if (db != null) {
+      try {
+        final doc = await db.collection('products').doc(productId).get().timeout(const Duration(seconds: 4));
+        if (doc.exists && doc.data() != null) {
+          final product = _mapDocToProduct(doc.id, doc.data()!);
+          if (variantId != null && product.hasVariants) {
+            final updatedVariants = product.variants.map((v) {
+              if (v.id == variantId) return v.copyWith(stockQuantity: newQuantity);
+              return v;
+            }).toList();
+            await updateProduct(product.copyWith(variants: updatedVariants));
+          } else {
+            await db.collection('products').doc(productId).update({
+              'stock': newQuantity,
+              'stockQuantity': newQuantity,
+              'totalStock': newQuantity,
+              'inStock': newQuantity > 0,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }).timeout(const Duration(seconds: 4));
+          }
+          return;
         }
-      }
-    } catch (_) {
-      await _fallbackRepo.quickAdjustStock(productId, newQuantity, variantId: variantId);
+      } catch (_) {}
     }
+    await _fallbackRepo.quickAdjustStock(productId, newQuantity, variantId: variantId);
   }
 
   @override
@@ -166,12 +206,15 @@ class FirestoreProductRepository implements ProductRepository {
     final newStatus = product.status.toLowerCase() == 'active' ? 'Draft' : 'Active';
     final updated = product.copyWith(status: newStatus, updatedAt: DateTime.now());
 
-    try {
-      await _firestore.collection('products').doc(productId).update({
-        'status': newStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('products').doc(productId).update({
+          'status': newStatus,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
 
     return updated;
   }
@@ -183,34 +226,42 @@ class FirestoreProductRepository implements ProductRepository {
 
     final updated = product.copyWith(status: 'Archived', updatedAt: DateTime.now());
 
-    try {
-      await _firestore.collection('products').doc(productId).update({
-        'status': 'Archived',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('products').doc(productId).update({
+          'status': 'Archived',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
 
     return updated;
   }
 
   @override
   Future<bool> hardDeleteProduct(String productId) async {
-    try {
-      await _firestore.collection('products').doc(productId).delete();
-      return true;
-    } catch (_) {
-      return await _fallbackRepo.hardDeleteProduct(productId);
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('products').doc(productId).delete().timeout(const Duration(seconds: 4));
+        return true;
+      } catch (_) {}
     }
+    return await _fallbackRepo.hardDeleteProduct(productId);
   }
 
   @override
   Future<List<Category>> getCategories() async {
-    try {
-      final snapshot = await _firestore.collection('categories').get();
-      if (snapshot.docs.isNotEmpty) {
-        return snapshot.docs.map((doc) => _mapDocToCategory(doc.id, doc.data())).toList();
-      }
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        final snapshot = await db.collection('categories').get().timeout(const Duration(seconds: 4));
+        if (snapshot.docs.isNotEmpty) {
+          return snapshot.docs.map((doc) => _mapDocToCategory(doc.id, doc.data())).toList();
+        }
+      } catch (_) {}
+    }
     return await _fallbackRepo.getCategories();
   }
 
@@ -219,44 +270,52 @@ class FirestoreProductRepository implements ProductRepository {
     final id = category.id.isEmpty ? 'cat-${_uuid.v4().substring(0, 6)}' : category.id;
     final newCat = category.copyWith(id: id);
 
-    try {
-      await _firestore.collection('categories').doc(id).set({
-        'id': id,
-        'name': newCat.name,
-        'title': newCat.name,
-        'slug': newCat.slug,
-        'icon': newCat.icon,
-        'productCount': newCat.productCount,
-      });
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('categories').doc(id).set({
+          'id': id,
+          'name': newCat.name,
+          'title': newCat.name,
+          'slug': newCat.slug,
+          'icon': newCat.icon,
+          'productCount': newCat.productCount,
+        }).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
 
     return newCat;
   }
 
   @override
   Future<Category> updateCategory(Category category) async {
-    try {
-      await _firestore.collection('categories').doc(category.id).set({
-        'id': category.id,
-        'name': category.name,
-        'title': category.name,
-        'slug': category.slug,
-        'icon': category.icon,
-        'productCount': category.productCount,
-      }, SetOptions(merge: true));
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('categories').doc(category.id).set({
+          'id': category.id,
+          'name': category.name,
+          'title': category.name,
+          'slug': category.slug,
+          'icon': category.icon,
+          'productCount': category.productCount,
+        }, SetOptions(merge: true)).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
 
     return category;
   }
 
   @override
   Future<bool> deleteCategory(String categoryId) async {
-    try {
-      await _firestore.collection('categories').doc(categoryId).delete();
-      return true;
-    } catch (_) {
-      return await _fallbackRepo.deleteCategory(categoryId);
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('categories').doc(categoryId).delete().timeout(const Duration(seconds: 4));
+        return true;
+      } catch (_) {}
     }
+    return await _fallbackRepo.deleteCategory(categoryId);
   }
 
   Product _mapDocToProduct(String id, Map<String, dynamic> data) {

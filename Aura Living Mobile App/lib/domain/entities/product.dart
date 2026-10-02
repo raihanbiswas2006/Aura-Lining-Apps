@@ -58,15 +58,27 @@ class ProductVariant {
   }
 
   factory ProductVariant.fromJson(Map<String, dynamic> json) {
+    final rawAttrs = json['attributes'];
+    Map<String, String> attrs = {};
+    if (rawAttrs is Map) {
+      attrs = rawAttrs.map((k, v) => MapEntry(k.toString(), v.toString()));
+    }
+
+    final rawImages = json['imageUrls'] ?? json['images'] ?? [];
+    List<String> images = [];
+    if (rawImages is List) {
+      images = rawImages.map((e) => e.toString()).toList();
+    }
+
     return ProductVariant(
-      id: json['id'] as String,
-      sku: json['sku'] as String,
-      title: json['title'] as String,
-      attributes: Map<String, String>.from(json['attributes'] as Map),
-      price: (json['price'] as num).toDouble(),
+      id: json['id']?.toString() ?? '',
+      sku: json['sku']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Standard',
+      attributes: attrs,
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
       compareAtPrice: (json['compareAtPrice'] as num?)?.toDouble(),
-      stockQuantity: json['stockQuantity'] as int,
-      imageUrls: List<String>.from(json['imageUrls'] as List),
+      stockQuantity: (json['stockQuantity'] as num?)?.toInt() ?? (json['stock'] as num?)?.toInt() ?? 0,
+      imageUrls: images,
     );
   }
 }
@@ -199,20 +211,70 @@ class Product {
   }
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    DateTime parsedDate = DateTime.now();
+    final rawDate = json['createdAt'];
+    if (rawDate is String) {
+      parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+    } else if (rawDate != null && rawDate.runtimeType.toString().contains('Timestamp')) {
+      try {
+        parsedDate = (rawDate as dynamic).toDate();
+      } catch (_) {}
+    }
+
+    final rawSpecs = json['specifications'];
+    Map<String, String> specs = {};
+    if (rawSpecs is Map) {
+      specs = rawSpecs.map((k, v) => MapEntry(k.toString(), v.toString()));
+    }
+
+    final rawTags = json['tags'];
+    List<String> tags = [];
+    if (rawTags is List) {
+      tags = rawTags.map((e) => e.toString()).toList();
+    }
+
+    final rawVariants = json['variants'];
+    List<ProductVariant> variants = [];
+    if (rawVariants is List && rawVariants.isNotEmpty) {
+      variants = rawVariants
+          .whereType<Map>()
+          .map((v) => ProductVariant.fromJson(Map<String, dynamic>.from(v)))
+          .toList();
+    }
+
+    // If product has no variants, build fallback variant from product data
+    if (variants.isEmpty) {
+      final rawImages = json['imageUrls'] ?? json['images'] ?? [];
+      final List<String> images = (rawImages is List)
+          ? rawImages.map((e) => e.toString()).toList()
+          : [];
+      final basePrice = (json['basePrice'] as num?)?.toDouble() ?? (json['price'] as num?)?.toDouble() ?? 0.0;
+      final stock = (json['stockQuantity'] as num?)?.toInt() ?? (json['stock'] as num?)?.toInt() ?? 0;
+      variants.add(
+        ProductVariant(
+          id: '${json['id'] ?? 'var'}-def',
+          sku: json['slug']?.toString() ?? 'STD',
+          title: 'Standard',
+          attributes: const {'Finish': 'Standard'},
+          price: basePrice,
+          stockQuantity: stock,
+          imageUrls: images,
+        ),
+      );
+    }
+
     return Product(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      brand: json['brand'] as String,
-      description: json['description'] as String,
-      categoryId: json['categoryId'] as String,
-      tags: List<String>.from(json['tags'] as List),
-      variants: (json['variants'] as List)
-          .map((v) => ProductVariant.fromJson(v as Map<String, dynamic>))
-          .toList(),
-      rating: (json['rating'] as num).toDouble(),
-      reviewCount: json['reviewCount'] as int,
-      specifications: Map<String, String>.from(json['specifications'] as Map),
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: json['id']?.toString() ?? '',
+      title: (json['title'] ?? json['name'] ?? '').toString(),
+      brand: json['brand']?.toString() ?? 'Aura Living',
+      description: json['description']?.toString() ?? '',
+      categoryId: json['categoryId']?.toString() ?? 'cat-living',
+      tags: tags,
+      variants: variants,
+      rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
+      reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
+      specifications: specs,
+      createdAt: parsedDate,
     );
   }
 

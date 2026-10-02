@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import '../domain/order.dart';
 import '../domain/order_status.dart';
@@ -7,15 +8,30 @@ import 'order_repository.dart';
 
 /// Live Firestore Order Repository for Aura Living Admin
 class FirestoreOrderRepository implements OrderRepository {
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore? _firestoreOverride;
   final MockOrderRepository _fallbackRepo = MockOrderRepository();
 
+  FirebaseFirestore? get _firestore {
+    if (_firestoreOverride != null) return _firestoreOverride;
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        return FirebaseFirestore.instance;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   FirestoreOrderRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+      : _firestoreOverride = firestore;
 
   @override
   Stream<List<Order>> watchOrders() {
-    return _firestore
+    final db = _firestore;
+    if (db == null) {
+      return Stream.value(_fallbackRepo.getOrdersSync());
+    }
+
+    return db
         .collection('orders')
         .snapshots()
         .map((snapshot) {
@@ -34,8 +50,13 @@ class FirestoreOrderRepository implements OrderRepository {
 
   @override
   Future<List<Order>> getOrders({OrderStatus? statusFilter, String? query}) async {
+    final db = _firestore;
+    if (db == null) {
+      return await _fallbackRepo.getOrders(statusFilter: statusFilter, query: query);
+    }
+
     try {
-      final snapshot = await _firestore.collection('orders').get();
+      final snapshot = await db.collection('orders').get().timeout(const Duration(seconds: 4));
       if (snapshot.docs.isEmpty) {
         return await _fallbackRepo.getOrders(statusFilter: statusFilter, query: query);
       }
@@ -66,12 +87,15 @@ class FirestoreOrderRepository implements OrderRepository {
   @override
   Future<Order?> getOrderById(String id) async {
     final cleanId = id.replaceAll('#', '');
-    try {
-      final doc = await _firestore.collection('orders').doc(cleanId).get();
-      if (doc.exists && doc.data() != null) {
-        return _mapDocToOrder(doc.id, doc.data()!);
-      }
-    } catch (_) {}
+    final db = _firestore;
+    if (db != null) {
+      try {
+        final doc = await db.collection('orders').doc(cleanId).get().timeout(const Duration(seconds: 4));
+        if (doc.exists && doc.data() != null) {
+          return _mapDocToOrder(doc.id, doc.data()!);
+        }
+      } catch (_) {}
+    }
 
     return _fallbackRepo.getOrderById(cleanId);
   }
@@ -132,10 +156,23 @@ class FirestoreOrderRepository implements OrderRepository {
       updates['paymentStatus'] = 'Refunded';
     }
 
-    try {
-      await _firestore.collection('orders').doc(cleanId).update(updates);
-    } catch (_) {
-      // If doc does not exist yet in Firestore, update fallback
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection('orders').doc(cleanId).update(updates).timeout(const Duration(seconds: 4));
+      } catch (_) {
+        // If doc does not exist yet in Firestore, update fallback
+        return _fallbackRepo.transitionOrderStatus(
+          orderId: cleanId,
+          newStatus: newStatus,
+          trackingNumber: trackingNumber,
+          courierPartner: courierPartner,
+          cancellationReason: cancellationReason,
+          note: note,
+          staffIdentifier: staffIdentifier,
+        );
+      }
+    } else {
       return _fallbackRepo.transitionOrderStatus(
         orderId: cleanId,
         newStatus: newStatus,

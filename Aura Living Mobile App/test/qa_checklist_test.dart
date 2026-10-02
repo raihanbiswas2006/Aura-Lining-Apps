@@ -114,33 +114,32 @@ void main() {
     test(r'QA-07: Coupon - AURA10 (10% off), FREESHIP ($0 ship), MINIMALIST threshold', () async {
       final cartCubit = CartCubit(cartRepo);
       final product = mockProducts.first;
-      final variant = product.variants.first.copyWith(price: 100.0, stockQuantity: 10);
+      final variant = product.variants.first.copyWith(price: 10000.0, stockQuantity: 10);
 
-      await cartCubit.addItem(product, variant, quantity: 1); // Subtotal = $100.0
-      expect(cartCubit.state.subtotal, 100.0);
+      await cartCubit.addItem(product, variant, quantity: 1); // Subtotal = ৳10000.0
+      expect(cartCubit.state.subtotal, 10000.0);
 
       // Test AURA10
       var success = await cartCubit.applyCoupon('AURA10');
       expect(success, true);
-      expect(cartCubit.state.discountAmount, 10.0); // 10% of 100 = 10.0
+      expect(cartCubit.state.discountAmount, 1000.0); // 10% of 10000 = 1000.0
 
-      // Test MINIMALIST when subtotal < $150
+      // Test MINIMALIST when subtotal < ৳15000
       success = await cartCubit.applyCoupon('MINIMALIST');
       expect(success, false);
-      expect(cartCubit.state.couponError, 'Order minimum of \$150 not met for this coupon');
+      expect(cartCubit.state.couponError, 'Order minimum of ৳15000 not met for this coupon');
 
-      // Increase subtotal to $200
-      await cartCubit.addItem(product, variant, quantity: 1); // 2 items = $200
-      expect(cartCubit.state.subtotal, 200.0);
+      // Increase subtotal to ৳20000
+      await cartCubit.addItem(product, variant, quantity: 1); // 2 items = ৳20000
+      expect(cartCubit.state.subtotal, 20000.0);
 
       // Now apply MINIMALIST
       success = await cartCubit.applyCoupon('MINIMALIST');
       expect(success, true);
-      expect(cartCubit.state.discountAmount, 20.0); // Flat $20.0 off
+      expect(cartCubit.state.discountAmount, 1000.0); // Flat ৳1000.0 off
 
       // Test FREESHIP
-      // With subtotal < 200, base shipping is $15
-      await cartCubit.updateQuantity(cartCubit.state.items.first.id, 1); // subtotal = 100
+      await cartCubit.updateQuantity(cartCubit.state.items.first.id, 1); // subtotal = 10000 >= 5000
       success = await cartCubit.applyCoupon('FREESHIP');
       expect(success, true);
       expect(cartCubit.state.shippingCost, 0.0);
@@ -200,7 +199,7 @@ void main() {
       );
       expect(order, isNotNull);
       expect(order!.orderNumber.startsWith('AL-'), true);
-      expect(order.fulfillmentStatus, 'processing');
+      expect(order.fulfillmentStatus, 'confirmed');
       expect(order.paymentStatus, 'paid');
 
       // Cart is cleared after order

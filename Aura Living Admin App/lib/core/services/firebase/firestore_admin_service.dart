@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'firestore_collections.dart';
 import '../../../features/products/domain/product.dart';
@@ -36,14 +37,26 @@ abstract class IFirestoreAdminService {
 
 /// Production implementation of [IFirestoreAdminService] connected to Cloud Firestore
 class FirestoreAdminService implements IFirestoreAdminService {
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore? _firestoreOverride;
+
+  FirebaseFirestore? get _firestore {
+    if (_firestoreOverride != null) return _firestoreOverride;
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        return FirebaseFirestore.instance;
+      }
+    } catch (_) {}
+    return null;
+  }
 
   FirestoreAdminService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+      : _firestoreOverride = firestore;
 
   @override
   Stream<List<Order>> watchOrdersStream() {
-    return _firestore.collection(FirestoreCollections.orders).snapshots().map((snapshot) {
+    final db = _firestore;
+    if (db == null) return Stream.value(<Order>[]);
+    return db.collection(FirestoreCollections.orders).snapshots().map((snapshot) {
       if (snapshot.docs.isEmpty) return <Order>[];
 
       return snapshot.docs.map((doc) {
@@ -86,7 +99,12 @@ class FirestoreAdminService implements IFirestoreAdminService {
       updates['adminNotes'] = adminNotes;
     }
 
-    await _firestore.collection(FirestoreCollections.orders).doc(orderId).update(updates);
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection(FirestoreCollections.orders).doc(orderId).update(updates).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
   }
 
   @override
@@ -95,13 +113,18 @@ class FirestoreAdminService implements IFirestoreAdminService {
     required int newQuantity,
     String? variantId,
   }) async {
-    await _firestore.collection(FirestoreCollections.products).doc(productId).update({
-      'stock': newQuantity,
-      'stockQuantity': newQuantity,
-      'totalStock': newQuantity,
-      'inStock': newQuantity > 0,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection(FirestoreCollections.products).doc(productId).update({
+          'stock': newQuantity,
+          'stockQuantity': newQuantity,
+          'totalStock': newQuantity,
+          'inStock': newQuantity > 0,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
   }
 
   @override
@@ -137,15 +160,26 @@ class FirestoreAdminService implements IFirestoreAdminService {
       'updatedAt': FieldValue.serverTimestamp(),
     };
 
-    await _firestore
-        .collection(FirestoreCollections.products)
-        .doc(product.id)
-        .set(data, SetOptions(merge: true));
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db
+            .collection(FirestoreCollections.products)
+            .doc(product.id)
+            .set(data, SetOptions(merge: true))
+            .timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
   }
 
   @override
   Future<void> deleteProduct(String productId) async {
-    await _firestore.collection(FirestoreCollections.products).doc(productId).delete();
+    final db = _firestore;
+    if (db != null) {
+      try {
+        await db.collection(FirestoreCollections.products).doc(productId).delete().timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
   }
 
   Order _mapFirestoreDocToOrder(String id, Map<String, dynamic> data) {

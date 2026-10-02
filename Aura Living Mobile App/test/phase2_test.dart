@@ -67,14 +67,14 @@ void main() {
 
       final freeship = await cartRepo.getCoupon('FREESHIP');
       expect(freeship, isNotNull);
-      expect(freeship!.calculateDiscount(100.0, 15.0), 15.0);
+      expect(freeship!.calculateDiscount(6000.0, 150.0), 150.0);
 
       final minimalist = await cartRepo.getCoupon('MINIMALIST');
       expect(minimalist, isNotNull);
-      // Below min order $150
-      expect(minimalist!.calculateDiscount(100.0, 15.0), 0.0);
-      // At or above $150
-      expect(minimalist.calculateDiscount(160.0, 15.0), 20.0);
+      // Below min order ৳15000
+      expect(minimalist!.calculateDiscount(10000.0, 150.0), 0.0);
+      // At or above ৳15000
+      expect(minimalist.calculateDiscount(16000.0, 150.0), 1000.0);
     });
   });
 }

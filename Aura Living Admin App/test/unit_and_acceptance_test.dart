@@ -378,8 +378,8 @@ void main() {
     });
 
     test('Formatters correctly format currency and order numbers', () {
-      expect(AppFormatters.formatCurrency(168.73), equals('\$168.73'));
-      expect(AppFormatters.formatCurrency(0.0), equals('\$0.00'));
+      expect(AppFormatters.formatCurrency(168.73), equals('৳168.73'));
+      expect(AppFormatters.formatCurrency(0.0), equals('৳0'));
       expect(AppFormatters.formatOrderId('AL-9842'), equals('#AL-9842'));
       expect(AppFormatters.formatOrderId('#AL-9842'), equals('#AL-9842'));
     });
