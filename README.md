@@ -124,4 +124,6 @@ cd "../Aura Living Admin App" && flutter analyze
 
 ## 🌐 References
 - **Live Web Platform**: [https://aura-minimalist-e-commerce.vercel.app/](https://aura-minimalist-e-commerce.vercel.app/)
-- **Reference Web Repository**: [https://github.com/raihanbiswas2006/Aura-Minimalist-E-Commerce-Platform](https://github.com/raihanbiswas2006/Aura-Minimalist-E-Commerce-Platform)
+- **Website Repository**: [https://github.com/raihanbiswas2006/Aura-Minimalist-E-Commerce-Platform](https://github.com/raihanbiswas2006/Aura-Minimalist-E-Commerce-Platform)
+- **Mobile & Admin Apps Repository**: [https://github.com/raihanbiswas2006/Aura-Living-Apps](https://github.com/raihanbiswas2006/Aura-Living-Apps)
+
