@@ -1,14 +1,25 @@
 const { initializeApp } = require('firebase/app');
 const { getFirestore, doc, setDoc, serverTimestamp } = require('firebase/firestore');
+const fs = require('fs');
+const path = require('path');
+
+// Dynamically load config from environment or local uncommitted .env.json
+let envConfig = {};
+const envJsonPath = path.join(__dirname, '..', '.env.json');
+if (fs.existsSync(envJsonPath)) {
+  try {
+    envConfig = JSON.parse(fs.readFileSync(envJsonPath, 'utf-8'));
+  } catch (_) {}
+}
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyC7ybJVB_xjv5hbNoO5_mAbdeRgRDFFC6Y',
-  authDomain: 'aura-living-6885e.firebaseapp.com',
-  projectId: 'aura-living-6885e',
-  storageBucket: 'aura-living-6885e.firebasestorage.app',
-  messagingSenderId: '668021638019',
-  appId: '1:668021638019:web:c5dde78b9e796340f3ecb6',
-  measurementId: 'G-JRWR1X9SY9'
+  apiKey: process.env.FIREBASE_WEB_API_KEY || envConfig.FIREBASE_WEB_API_KEY || '',
+  authDomain: (process.env.FIREBASE_PROJECT_ID || envConfig.FIREBASE_PROJECT_ID || 'aura-living-6885e') + '.firebaseapp.com',
+  projectId: process.env.FIREBASE_PROJECT_ID || envConfig.FIREBASE_PROJECT_ID || 'aura-living-6885e',
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || envConfig.FIREBASE_STORAGE_BUCKET || 'aura-living-6885e.firebasestorage.app',
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || envConfig.FIREBASE_MESSAGING_SENDER_ID || '668021638019',
+  appId: process.env.FIREBASE_WEB_APP_ID || envConfig.FIREBASE_WEB_APP_ID || '',
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID || envConfig.FIREBASE_MEASUREMENT_ID || 'G-JRWR1X9SY9'
 };
 
 const app = initializeApp(firebaseConfig);
@@ -16,17 +27,8 @@ const db = getFirestore(app);
 
 const users = [
   {
-    id: 'PfexgCIR2QWqAedBDMwVDmBml5A2',
-    name: 'Super Admin',
-    email: 'admin@auraliving.com',
-    role: 'superAdmin',
-    phone: '+8801700000001',
-    isGuest: false,
-    addresses: []
-  },
-  {
     id: 'f0QD9oDWa3YRxp1TRWbdEaPrhG43',
-    name: 'Lars Nyström',
+    name: 'Operations Manager',
     email: 'manager@auraliving.com',
     role: 'storeManager',
     phone: '+8801700000002',
@@ -35,7 +37,7 @@ const users = [
   },
   {
     id: '2eZ0X0RN0ON0WponpZrcJu3vP8h1',
-    name: 'Freja Jensen',
+    name: 'Inventory Staff',
     email: 'staff@auraliving.com',
     role: 'inventoryStaff',
     phone: '+8801700000003',
@@ -43,60 +45,36 @@ const users = [
     addresses: []
   },
   {
-    id: 'EW4v8cVH6ucPdmlDoHEKpqbGFjs2',
-    name: 'Raihan Biswas',
-    email: 'raihanbiswas2006@gmail.com',
-    role: 'superAdmin',
-    phone: '+8801712345678',
-    isGuest: false,
-    addresses: []
-  },
-  {
-    id: 'sQqDRULVEJYRhiADoIvcGTndS2A2',
+    id: 'bZ7vM8xP9qW1rK4tL2nE5yU3iO6a',
     name: 'Operations Admin',
     email: 'admin@demo.aura',
     role: 'admin',
     phone: '+8801700000004',
     isGuest: false,
     addresses: []
-  },
-  {
-    id: 'rJAc2B46vGNNnEYJMJK5N3rREB12',
-    name: 'Nusrat Jahan',
-    email: 'nusrat@demo.aura',
-    role: 'customer',
-    phone: '+8801812345678',
-    isGuest: false,
-    addresses: [
-      {
-        id: 'addr-nusrat-1',
-        title: 'Home',
-        recipientName: 'Nusrat Jahan',
-        phoneNumber: '+8801812345678',
-        division: 'Chattogram',
-        district: 'Chattogram',
-        thana: 'Panchlaish',
-        streetAddress: 'House 42, Road 3, Nasirabad H/S',
-        isDefault: true
-      }
-    ]
   }
 ];
 
-async function seedProfiles() {
-  console.log('Seeding user profiles into Firestore /users...');
-  for (const u of users) {
-    await setDoc(doc(db, 'users', u.id), {
-      ...u,
+async function seedUsers() {
+  console.log('Seeding authorized users into Firestore...');
+  for (const user of users) {
+    const userRef = doc(db, 'users', user.id);
+    await setDoc(userRef, {
+      ...user,
+      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }, { merge: true });
-    console.log('Seeded profile:', u.email, '(' + u.role + ')');
+    console.log(`Seeded user: ${user.name} (${user.email}) -> Role: ${user.role}`);
   }
-  console.log('Done seeding user profiles!');
+  console.log('User profiles successfully seeded.');
   process.exit(0);
 }
 
-seedProfiles().catch(err => {
-  console.error('Error seeding profiles:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  seedUsers().catch(err => {
+    console.error('Error seeding users:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { seedUsers };

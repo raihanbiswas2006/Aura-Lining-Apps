@@ -1,3 +1,5 @@
+import 'dart:async';
+import '../../../core/utils/input_sanitizer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +26,7 @@ class _OrderListScreenState extends ConsumerState<OrderListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   final List<OrderStatus?> _tabs = const [
     null, // All
@@ -51,6 +54,7 @@ class _OrderListScreenState extends ConsumerState<OrderListScreen>
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -140,10 +144,16 @@ class _OrderListScreenState extends ConsumerState<OrderListScreen>
                       ),
                     ),
                     onChanged: (val) {
-                      ref.read(orderFilterProvider.notifier).update(
-                            (s) => s.copyWith(searchQuery: val.trim()),
-                          );
-                    },
+                        _debounceTimer?.cancel();
+                        final sanitized = InputSanitizer.sanitizeSearchQuery(val);
+                        _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                          if (mounted) {
+                            ref.read(orderFilterProvider.notifier).update(
+                                  (s) => s.copyWith(searchQuery: sanitized),
+                                );
+                          }
+                        });
+                      },
                   ),
                 ),
               ],

@@ -17,13 +17,23 @@ class OrderConfirmationScreen extends StatelessWidget {
     required this.onViewOrders,
   });
 
+  void _handleContinueShopping(BuildContext context) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    onContinueShopping();
+  }
+
+  void _handleViewOrders(BuildContext context) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    onViewOrders();
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        onContinueShopping();
+        _handleContinueShopping(context);
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
@@ -163,12 +173,12 @@ class OrderConfirmationScreen extends StatelessWidget {
               // Action CTAs
               AuraPrimaryButton(
                 label: 'View Order in Profile',
-                onPressed: onViewOrders,
+                onPressed: () => _handleViewOrders(context),
               ),
               const SizedBox(height: 12),
               AuraOutlineButton(
                 label: 'Continue Shopping',
-                onPressed: onContinueShopping,
+                onPressed: () => _handleContinueShopping(context),
               ),
               const SizedBox(height: 20),
             ],

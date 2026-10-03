@@ -1,3 +1,4 @@
+import '../../../core/utils/input_sanitizer.dart';
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../data/datasources/local_storage_service.dart';
@@ -69,8 +70,9 @@ class SearchCubit extends Cubit<SearchState> {
   }
 
   void onQueryChanged(String query) {
+    final cleanQuery = InputSanitizer.sanitizeSearchQuery(query);
     _debounceTimer?.cancel();
-    if (query.trim().isEmpty) {
+    if (cleanQuery.isEmpty) {
       emit(state.copyWith(
         query: '',
         suggestedTerms: [],
@@ -80,14 +82,14 @@ class SearchCubit extends Cubit<SearchState> {
       return;
     }
 
-    emit(state.copyWith(query: query, isLoading: true));
+    emit(state.copyWith(query: cleanQuery, isLoading: true));
 
     // Debounce 300ms per PRD SCR-005
     _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
       final suggestions =
-          await _productRepository.getSuggestedSearchTerms(query);
+          await _productRepository.getSuggestedSearchTerms(cleanQuery);
       final products = await _productRepository.getProducts(
-        searchQuery: query,
+        searchQuery: cleanQuery,
       );
 
       if (!isClosed) {

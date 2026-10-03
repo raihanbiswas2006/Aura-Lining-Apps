@@ -1,3 +1,4 @@
+import '../../../core/utils/input_sanitizer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../app/theme/app_colors.dart';
@@ -97,14 +98,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       final address = Address(
         id: 'addr-${DateTime.now().millisecondsSinceEpoch}',
-        fullName: _nameController.text.trim(),
-        addressLine1: _address1Controller.text.trim(),
-        addressLine2: _address2Controller.text.trim(),
+        fullName: InputSanitizer.sanitizeText(_nameController.text, maxLength: 100),
+        addressLine1: InputSanitizer.sanitizeText(_address1Controller.text, maxLength: 200),
+        addressLine2: InputSanitizer.sanitizeText(_address2Controller.text, maxLength: 200),
         city: _selectedDistrict,
         division: _selectedDivision,
         district: _selectedDistrict,
         thana: _selectedThana,
-        postalCode: _postalController.text.trim(),
+        postalCode: InputSanitizer.sanitizeText(_postalController.text, maxLength: 20),
         country: BangladeshRegions.country,
         phone: BangladeshRegions.normalizePhone(_phoneController.text.trim()) ?? _phoneController.text.trim(),
         isDefault: true,
@@ -1097,6 +1098,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     CheckoutState state,
     CartCubit cartCubit,
   ) {
+    if (state.isPlacingOrder) return;
     final cubit = context.read<CheckoutCubit>();
 
     switch (state.currentStep) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+import '../../../core/utils/input_sanitizer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,6 +28,7 @@ class ProductListScreen extends ConsumerStatefulWidget {
 
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   final _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -41,13 +44,20 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   void _onSearch(String value) {
-    ref.read(productFilterProvider.notifier).state =
-        ref.read(productFilterProvider).copyWith(searchQuery: value);
+    _debounceTimer?.cancel();
+    final sanitized = InputSanitizer.sanitizeSearchQuery(value);
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        ref.read(productFilterProvider.notifier).state =
+            ref.read(productFilterProvider).copyWith(searchQuery: sanitized);
+      }
+    });
   }
 
   void _onCategoryFilter(String categoryId) {

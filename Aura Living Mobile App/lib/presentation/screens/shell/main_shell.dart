@@ -7,6 +7,7 @@ import '../../../domain/entities/product.dart';
 import '../../blocs/cart/cart_cubit.dart';
 import '../../blocs/catalog/catalog_cubit.dart';
 import '../../blocs/wishlist/wishlist_cubit.dart';
+import '../account/order_history_screen.dart';
 import '../account/profile_screen.dart';
 import '../cart/cart_screen.dart';
 import '../checkout/checkout_screen.dart';
@@ -106,6 +107,12 @@ class _MainShellState extends State<MainShell> {
             setState(() {
               _currentIndex = 4; // Switch to Account
             });
+            // Automatically push OrderHistoryScreen so customer sees their orders
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const OrderHistoryScreen(),
+              ),
+            );
           },
         ),
       ),

@@ -46,3 +46,43 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+
+# ===============================================================
+# DevSecOps & Security Hardening: Sensitive Files & Credentials
+# ===============================================================
+
+# Antigravity Agent & AI Skills
+.agents/
+.agents/**
+skills-lock.json
+
+# Firebase Configurations & Credentials
+.firebaserc
+firebase.json
+**/firebase.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
+
+# Environment Files & Key Definitions
+*.env
+*.env.*
+*.env.json
+**/*.env.json
+!*.env.example
+!*.env.example.*
+!*.env.json.example
+!**/*.env.json.example
+!**/*.example
+
+# Keystores & Cryptographic Keys
+*.key
+*.keystore
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+*.pem
+credentials.json
+service-account*.json

@@ -1,3 +1,5 @@
+import 'dart:async';
+import '../../../core/utils/input_sanitizer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,9 +21,11 @@ class CustomerDirectoryScreen extends ConsumerStatefulWidget {
 
 class _CustomerDirectoryScreenState extends ConsumerState<CustomerDirectoryScreen> {
   final _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -65,7 +69,13 @@ class _CustomerDirectoryScreenState extends ConsumerState<CustomerDirectoryScree
                 ),
               ),
               onChanged: (val) {
-                ref.read(customerSearchQueryProvider.notifier).state = val.trim();
+                _debounceTimer?.cancel();
+                final sanitized = InputSanitizer.sanitizeSearchQuery(val);
+                _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                  if (mounted) {
+                    ref.read(customerSearchQueryProvider.notifier).state = sanitized;
+                  }
+                });
               },
             ),
           ),
